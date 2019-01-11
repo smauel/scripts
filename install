@@ -1,0 +1,22 @@
+#! /bin/sh
+
+declare -a SCRIPTS=(
+repos
+)
+
+function symlink_scripts {
+  echo 'installing scripts...'
+  for script in ${SCRIPTS[@]}; do
+    echo " - ${script}"
+    ln -sf "${PWD}/${script}" "/usr/local/bin/${script}"
+  done
+}
+
+function install {
+  symlink_scripts
+}
+
+install
+echo
+echo
+echo "Finished."

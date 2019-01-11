@@ -1,0 +1,122 @@
+#!/usr/local/bin/bash
+
+RED='\e[1;31m'
+GREEN='\e[32m'
+YELLOW='\e[33m'
+GREY='\e[90m'
+END='\e[0m'
+
+RED_STAR="${RED}*${END}"
+YELLOW_STAR="${YELLOW}*${END}"
+GREEN_STAR="${GREEN}*${END}"
+
+declare -a repos
+for dir in $(ls -d */); do
+  # if the dir is a git repo, add it to the list of repos
+  [ -d $dir/.git ] && repos+=(${dir%%/})
+done
+
+usage() {
+cat <<EOS
+  Repos
+  A git tool for managing multiple repos.
+
+  USAGE: repos [list | status | pull | untagged | unreleased | <any other command>]
+
+  list              List discovered repos
+  status            Show git status of each repo
+  update            Pull latest changes for each repo
+  unpushed          Show commits that have not yet been pushed for each repo
+  untagged          Show commits since the last tag for each repo
+  unreleased        Show tags that have not been pushed yet for each repo
+
+  repos can also run any arbitrary command on each repo. Note there is no validation
+  done on these commands so be careful!
+
+  examples:
+    - repos list
+    - repos status
+    - repos git log -n 3
+EOS
+}
+
+function run() {
+  cmd="$@"
+
+  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    echo "- ${repo}"
+    eval ${cmd}
+    cd ..
+  done
+}
+
+function repos_list {
+  for repo in "${repos[@]}"; do
+    echo "- ${repo}"
+  done
+}
+
+function repos_update {
+  cmd='git pull --stat'
+  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    output=$($cmd)
+
+    if [[ "$output" == *"Already up to date"* ]]; then
+      echo -e "- ${repo}"
+    elif [[ "$output" == *"Updating"* ]]; then
+      echo -e "- ${GREEN}${repo}${END}"
+    else
+      echo -e "${GREY}$output${END}"
+      echo -e "- ${RED}${repo}${END}"
+    fi
+
+    cd ..
+  done
+}
+
+function repos_status {
+  run 'git status -s'
+}
+
+function repos_unpushed {
+  run 'git log origin/master..master'
+}
+
+function repos_untagged {
+  run 'git log $(git describe --tags --abbrev=0)..HEAD --oneline'
+}
+
+function repos_unreleased {
+  run 'git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)"'
+}
+
+command="$*"
+if [ "$command" != "" ]; then
+  case $command in
+    list )        repos_list
+      ;;
+    update )      repos_update
+      ;;
+    status )      repos_status
+      ;;
+    unpushed )    repos_unpushed
+      ;;
+    untagged )    repos_untagged
+      ;;
+    unreleased )  repos_unreleased
+      ;;
+    help )        usage
+      exit
+      ;;
+    * )           run $command
+      ;;
+  esac
+else
+  usage
+  exit 1
+fi
