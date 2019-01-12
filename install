@@ -17,6 +17,4 @@ function install {
 }
 
 install
-echo
-echo
 echo "Finished."
