@@ -1,19 +1,19 @@
-#!/usr/local/bin/bash
+#! /usr/bin/env bash
 
-RED='\e[1;31m'
-GREEN='\e[32m'
-YELLOW='\e[33m'
-GREY='\e[90m'
-END='\e[0m'
+RED="\033[38;5;196m"
+GREEN="\033[38;5;154m"
+YELLOW="\033[38;5;178m"
+GREY="\033[38;5;244m"
+NONE="\033[0m"
 
-RED_STAR="${RED}*${END}"
-YELLOW_STAR="${YELLOW}*${END}"
-GREEN_STAR="${GREEN}*${END}"
+RED_STAR="${RED}*${NONE}"
+YELLOW_STAR="${YELLOW}*${NONE}"
+GREEN_STAR="${GREEN}*${NONE}"
 
 declare -a repos
 for dir in $(ls -d */); do
   # if the dir is a git repo, add it to the list of repos
-  [ -d $dir/.git ] && repos+=(${dir%%/})
+  [ -d ${dir}/.git ] && repos+=(${dir%%/})
 done
 
 usage() {
@@ -43,7 +43,7 @@ EOS
 function run() {
   cmd="$@"
 
-  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
   for repo in "${repos[@]}"; do
     cd ${repo}
     echo "- ${repo}"
@@ -60,19 +60,19 @@ function repos_list {
 
 function repos_update {
   cmd='git pull --stat'
-  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
 
   for repo in "${repos[@]}"; do
     cd ${repo}
-    output=$($cmd)
+    output=$(${cmd})
 
-    if [[ "$output" == *"Already up to date"* ]]; then
+    if [[ "${output}" == *"Already up to date"* ]]; then
       echo -e "- ${repo}"
-    elif [[ "$output" == *"Updating"* ]]; then
-      echo -e "- ${GREEN}${repo}${END}"
+    elif [[ "${output}" == *"Updating"* ]]; then
+      echo -e "- ${GREEN}${repo}${NONE}"
     else
-      echo -e "${GREY}$output${END}"
-      echo -e "- ${RED}${repo}${END}"
+      echo -e "${GREY}${output}${NONE}"
+      echo -e "- ${RED}${repo}${NONE}"
     fi
 
     cd ..
@@ -80,7 +80,23 @@ function repos_update {
 }
 
 function repos_status {
-  run 'git status -s'
+  cmd='git status'
+
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    output=$(${cmd})
+
+    MESSAGE="- ${repo}"
+    if [[ ${output} == *"Untracked"* || ${output} == *"Changes not staged for commit"* ]]; then
+      MESSAGE+=" ${RED_STAR}"
+    fi
+    if [[ ${output} == *"Changes to be committed"* ]]; then
+      MESSAGE+=" ${GREEN_STAR}"
+    fi
+
+    echo -e ${MESSAGE}
+    cd ..
+  done
 }
 
 function repos_unpushed {
@@ -96,8 +112,8 @@ function repos_unreleased {
 }
 
 command="$*"
-if [ "$command" != "" ]; then
-  case $command in
+if [ "${command}" != "" ]; then
+  case ${command} in
     list )        repos_list
       ;;
     update )      repos_update
@@ -113,7 +129,7 @@ if [ "$command" != "" ]; then
     help )        usage
       exit
       ;;
-    * )           run $command
+    * )           run ${command}
       ;;
   esac
 else
