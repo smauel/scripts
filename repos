@@ -24,7 +24,7 @@ cat <<EOS
   USAGE: repos [list | status | pull | untagged | unreleased | <any other command>]
 
   list              List discovered repos
-  status            Show git status of each repo
+  status            Show git status of each repo (get details with 'repos status -l')
   update            Pull latest changes for each repo
   unpushed          Show commits that have not yet been pushed for each repo
   untagged          Show commits since the last tag for each repo
@@ -79,7 +79,7 @@ function repos_update {
   done
 }
 
-function repos_status {
+function repos_status_overview {
   cmd='git status'
 
   for repo in "${repos[@]}"; do
@@ -99,6 +99,25 @@ function repos_status {
   done
 }
 
+function repos_status_details {
+  cmd='git status -s'
+
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    echo "- ${repo}"
+    eval ${cmd}
+    cd ..
+  done
+}
+
+function repos_status {
+  if [ "$1" == "-l" ]; then
+    repos_status_details
+  else
+    repos_status_overview
+  fi
+}
+
 function repos_unpushed {
   run 'git log origin/master..master'
 }
@@ -111,14 +130,13 @@ function repos_unreleased {
   run 'git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)"'
 }
 
-command="$*"
-if [ "${command}" != "" ]; then
-  case ${command} in
+if [ "$1" != "" ]; then
+  case "$1" in
     list )        repos_list
       ;;
     update )      repos_update
       ;;
-    status )      repos_status
+    status )      repos_status "$2"
       ;;
     unpushed )    repos_unpushed
       ;;
@@ -129,7 +147,7 @@ if [ "${command}" != "" ]; then
     help )        usage
       exit
       ;;
-    * )           run ${command}
+    * )           run "$@"
       ;;
   esac
 else
