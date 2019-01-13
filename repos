@@ -6,9 +6,10 @@ YELLOW="\033[38;5;178m"
 GREY="\033[38;5;244m"
 NONE="\033[0m"
 
-RED_STAR="${RED}*${NONE}"
-YELLOW_STAR="${YELLOW}*${NONE}"
-GREEN_STAR="${GREEN}*${NONE}"
+
+UNTRACKED_INDICATOR="${RED}?${NONE}"
+MODIFIED_INDICATOR="${RED}✭${NONE}"
+STAGED_INDICATOR="${YELLOW}✚${NONE}"
 
 declare -a repos
 for dir in $(ls -d */); do
@@ -87,11 +88,14 @@ function repos_status_overview {
     output=$(${cmd})
 
     MESSAGE="- ${repo}"
-    if [[ ${output} == *"Untracked"* || ${output} == *"Changes not staged for commit"* ]]; then
-      MESSAGE+=" ${RED_STAR}"
+    if [[ ${output} == *"Your branch is ahead"* ]]; then
+      MESSAGE+=" ${STAGED_INDICATOR}"
     fi
-    if [[ ${output} == *"Changes to be committed"* ]]; then
-      MESSAGE+=" ${GREEN_STAR}"
+    if [[ ${output} == *"Changes to be committed"* || ${output} == *"Changes not staged for commit"* ]]; then
+      MESSAGE+=" ${MODIFIED_INDICATOR}"
+    fi
+    if [[ ${output} == *"Untracked"* ]]; then
+      MESSAGE+=" ${UNTRACKED_INDICATOR}"
     fi
 
     echo -e ${MESSAGE}
