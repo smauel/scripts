@@ -25,6 +25,7 @@ cat <<EOS
 
   list              List discovered repos
   status            Show git status of each repo
+  latest            Show the latest tag for each repo
   update            Pull latest changes for each repo
   unpushed          Show commits that have not yet been pushed for each repo
   untagged          Show commits since the last tag for each repo
@@ -92,7 +93,11 @@ function repos_untagged {
 }
 
 function repos_unreleased {
-  run 'git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)"'
+  run 'git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)" | cut -d " " -f 2 | sed "s|refs/tags/||"'
+}
+
+function repos_latest {
+  run 'git describe --tags'
 }
 
 command="$*"
@@ -109,6 +114,8 @@ if [ "$command" != "" ]; then
     untagged )    repos_untagged
       ;;
     unreleased )  repos_unreleased
+      ;;
+    latest )      repos_latest
       ;;
     help )        usage
       exit
