@@ -1,19 +1,20 @@
-#!/usr/local/bin/bash
+#! /usr/bin/env bash
 
-RED='\e[1;31m'
-GREEN='\e[32m'
-YELLOW='\e[33m'
-GREY='\e[90m'
-END='\e[0m'
+RED="\033[38;5;196m"
+GREEN="\033[38;5;154m"
+YELLOW="\033[38;5;178m"
+GREY="\033[38;5;244m"
+NONE="\033[0m"
 
-RED_STAR="${RED}*${END}"
-YELLOW_STAR="${YELLOW}*${END}"
-GREEN_STAR="${GREEN}*${END}"
+
+UNTRACKED_INDICATOR="${RED}?${NONE}"
+MODIFIED_INDICATOR="${RED}✭${NONE}"
+STAGED_INDICATOR="${YELLOW}✚${NONE}"
 
 declare -a repos
 for dir in $(ls -d */); do
   # if the dir is a git repo, add it to the list of repos
-  [ -d $dir/.git ] && repos+=(${dir%%/})
+  [ -d ${dir}/.git ] && repos+=(${dir%%/})
 done
 
 usage() {
@@ -24,7 +25,7 @@ cat <<EOS
   USAGE: repos [list | status | pull | untagged | unreleased | <any other command>]
 
   list              List discovered repos
-  status            Show git status of each repo
+  status            Show git status of each repo (get details with 'repos status -l')
   latest            Show the latest tag for each repo
   update            Pull latest changes for each repo
   unpushed          Show commits that have not yet been pushed for each repo
@@ -44,7 +45,7 @@ EOS
 function run() {
   cmd="$@"
 
-  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
   for repo in "${repos[@]}"; do
     cd ${repo}
     echo "- ${repo}"
@@ -61,27 +62,65 @@ function repos_list {
 
 function repos_update {
   cmd='git pull --stat'
-  echo -e "${GREY}About to run command [$cmd] for all repos${END}"
+  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
 
   for repo in "${repos[@]}"; do
     cd ${repo}
-    output=$($cmd)
+    output=$(${cmd})
 
-    if [[ "$output" == *"Already up to date"* ]]; then
+    if [[ "${output}" == *"Already up to date"* ]]; then
       echo -e "- ${repo}"
-    elif [[ "$output" == *"Updating"* ]]; then
-      echo -e "- ${GREEN}${repo}${END}"
+    elif [[ "${output}" == *"Updating"* ]]; then
+      echo -e "- ${GREEN}${repo}${NONE}"
     else
-      echo -e "${GREY}$output${END}"
-      echo -e "- ${RED}${repo}${END}"
+      echo -e "${GREY}${output}${NONE}"
+      echo -e "- ${RED}${repo}${NONE}"
     fi
 
     cd ..
   done
 }
 
+function repos_status_overview {
+  cmd='git status'
+
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    output=$(${cmd})
+
+    MESSAGE="- ${repo}"
+    if [[ ${output} == *"Your branch is ahead"* ]]; then
+      MESSAGE+=" ${STAGED_INDICATOR}"
+    fi
+    if [[ ${output} == *"Changes to be committed"* || ${output} == *"Changes not staged for commit"* ]]; then
+      MESSAGE+=" ${MODIFIED_INDICATOR}"
+    fi
+    if [[ ${output} == *"Untracked"* ]]; then
+      MESSAGE+=" ${UNTRACKED_INDICATOR}"
+    fi
+
+    echo -e ${MESSAGE}
+    cd ..
+  done
+}
+
+function repos_status_details {
+  cmd='git status -s'
+
+  for repo in "${repos[@]}"; do
+    cd ${repo}
+    echo "- ${repo}"
+    eval ${cmd}
+    cd ..
+  done
+}
+
 function repos_status {
-  run 'git status -s'
+  if [ "$1" == "-l" ]; then
+    repos_status_details
+  else
+    repos_status_overview
+  fi
 }
 
 function repos_unpushed {
@@ -100,14 +139,13 @@ function repos_latest {
   run 'git describe --tags'
 }
 
-command="$*"
-if [ "$command" != "" ]; then
-  case $command in
+if [ "$1" != "" ]; then
+  case "$1" in
     list )        repos_list
       ;;
     update )      repos_update
       ;;
-    status )      repos_status
+    status )      repos_status "$2"
       ;;
     unpushed )    repos_unpushed
       ;;
@@ -120,7 +158,7 @@ if [ "$command" != "" ]; then
     help )        usage
       exit
       ;;
-    * )           run $command
+    * )           run "$@"
       ;;
   esac
 else

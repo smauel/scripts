@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/bin/env bash
 
 declare -a SCRIPTS=(
 repos
@@ -17,6 +17,4 @@ function install {
 }
 
 install
-echo
-echo
 echo "Finished."
