@@ -2,6 +2,7 @@
 
 declare -a SCRIPTS=(
 repos
+gcs
 )
 
 function symlink_scripts {
