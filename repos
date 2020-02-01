@@ -1,29 +1,13 @@
 #! /usr/bin/env bash
 
-RED="\033[38;5;196m"
-GREEN="\033[38;5;154m"
-YELLOW="\033[38;5;178m"
-GREY="\033[38;5;244m"
-NONE="\033[0m"
-
-
-UNTRACKED_INDICATOR="${RED}?${NONE}"
-MODIFIED_INDICATOR="${RED}✭${NONE}"
-STAGED_INDICATOR="${YELLOW}✚${NONE}"
-
-declare -a repos
-for dir in $(ls -d */); do
-  # if the dir is a git repo, add it to the list of repos
-  [ -d ${dir}/.git ] && repos+=(${dir%%/})
-done
-
 usage() {
 cat <<EOS
   Repos
   A git tool for managing multiple repos.
 
-  USAGE: repos [list | status | pull | untagged | unreleased | <any other command>]
+  USAGE: repos [command]
 
+  COMMANDS:
   list              List discovered repos
   status            Show git status of each repo (get details with 'repos status -l')
   latest            Show the latest tag for each repo
@@ -42,123 +26,26 @@ cat <<EOS
 EOS
 }
 
-function run() {
-  cmd="$@"
-
-  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
-  for repo in "${repos[@]}"; do
-    cd ${repo}
-    echo "- ${repo}"
-    eval ${cmd}
-    cd ..
-  done
-}
-
-function repos_list {
-  for repo in "${repos[@]}"; do
-    echo "- ${repo}"
-  done
-}
-
-function repos_update {
-  cmd='git pull --stat'
-  echo -e "${GREY}About to run command [${cmd}] for all repos${NONE}"
-
-  for repo in "${repos[@]}"; do
-    cd ${repo}
-    output=$(${cmd})
-
-    if [[ "${output}" == *"Already up to date"* ]]; then
-      echo -e "- ${repo}"
-    elif [[ "${output}" == *"Updating"* ]]; then
-      echo -e "- ${GREEN}${repo}${NONE}"
-    else
-      echo -e "${GREY}${output}${NONE}"
-      echo -e "- ${RED}${repo}${NONE}"
-    fi
-
-    cd ..
-  done
-}
-
-function repos_status_overview {
-  cmd='git status'
-
-  for repo in "${repos[@]}"; do
-    cd ${repo}
-    output=$(${cmd})
-
-    MESSAGE="- ${repo}"
-    if [[ ${output} == *"Your branch is ahead"* ]]; then
-      MESSAGE+=" ${STAGED_INDICATOR}"
-    fi
-    if [[ ${output} == *"Changes to be committed"* || ${output} == *"Changes not staged for commit"* ]]; then
-      MESSAGE+=" ${MODIFIED_INDICATOR}"
-    fi
-    if [[ ${output} == *"Untracked"* ]]; then
-      MESSAGE+=" ${UNTRACKED_INDICATOR}"
-    fi
-
-    echo -e ${MESSAGE}
-    cd ..
-  done
-}
-
-function repos_status_details {
-  cmd='git status -s'
-
-  for repo in "${repos[@]}"; do
-    cd ${repo}
-    echo "- ${repo}"
-    eval ${cmd}
-    cd ..
-  done
-}
-
-function repos_status {
-  if [ "$1" == "-l" ]; then
-    repos_status_details
-  else
-    repos_status_overview
-  fi
-}
-
-function repos_unpushed {
-  run 'git log origin/master..master'
-}
-
-function repos_untagged {
-  run 'git log $(git describe --tags --abbrev=0)..HEAD --oneline'
-}
-
-function repos_unreleased {
-  run 'git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)" | cut -d " " -f 2 | sed "s|refs/tags/||"'
-}
-
-function repos_latest {
-  run 'git describe --tags'
-}
-
 if [ "$1" != "" ]; then
   case "$1" in
-    list )        repos_list
+    list )        find . -exec test -d '{}'/.git \; -print -prune
       ;;
-    update )      repos_update
+    update )      gfind . -name .git -printf "\n%h\n" -execdir git pull \;
       ;;
-    status )      repos_status "$2"
+    status )      gfind . -name .git -printf "\n%h\n" -execdir git status -s \;
       ;;
-    unpushed )    repos_unpushed
+    unpushed )    gfind . -name .git -printf "\n%h\n" -execdir git log origin/master..master \;
       ;;
-    untagged )    repos_untagged
+    untagged )    gfind . -name .git -printf "\n%h\n" -execdir git log $(git describe --tags --abbrev=0)..HEAD --oneline \;
       ;;
-    unreleased )  repos_unreleased
+    unreleased )  gfind . -name .git -printf "\n%h\n" -execdir git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)" | cut -d " " -f 2 | sed "s|refs/tags/||" \;
       ;;
-    latest )      repos_latest
+    latest )      gfind . -name .git -printf "\n%h\n" -execdir git describe --tags \;
       ;;
     help )        usage
       exit
       ;;
-    * )           run "$@"
+    * )           gfind . -name .git -printf "\n%h\n" -execdir $@ \;
       ;;
   esac
 else
