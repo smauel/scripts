@@ -26,26 +26,39 @@ cat <<EOS
 EOS
 }
 
+function iter() {
+  local command=$@
+
+  for repo in `repos list`
+  do 
+    echo $repo
+    cd $repo
+    $command
+    cd ..
+    echo
+  done
+}
+
 if [ "$1" != "" ]; then
   case "$1" in
-    list )        find . -exec test -d '{}'/.git \; -print -prune
+    list )        fd -H -td '^\.git$' -x echo {//}
       ;;
-    update )      gfind . -name .git -printf "\n%h\n" -execdir git pull \;
+    update )      iter git pull
       ;;
-    status )      gfind . -name .git -printf "\n%h\n" -execdir git status -s \;
+    status )      iter git status -s
       ;;
-    unpushed )    gfind . -name .git -printf "\n%h\n" -execdir git log origin/master..master \;
+    unpushed )    iter git log origin/master..master
       ;;
-    untagged )    gfind . -name .git -printf "\n%h\n" -execdir git log $(git describe --tags --abbrev=0)..HEAD --oneline \;
+    untagged )    iter git log $(git describe --tags --abbrev=0)..HEAD --oneline
       ;;
-    unreleased )  gfind . -name .git -printf "\n%h\n" -execdir git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)" | cut -d " " -f 2 | sed "s|refs/tags/||" \;
+    unreleased )  iter git show-ref --tags | grep -v -F "$(git ls-remote --tags origin | cut -f 2)" | cut -d " " -f 2 | sed "s|refs/tags/||"
       ;;
-    latest )      gfind . -name .git -printf "\n%h\n" -execdir git describe --tags \;
+    latest )      iter git describe --tags
       ;;
     help )        usage
       exit
       ;;
-    * )           gfind . -name .git -printf "\n%h\n" -execdir $@ \;
+    * )           iter $@
       ;;
   esac
 else
